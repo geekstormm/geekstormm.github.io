@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>LGS Blog</title><link>https://geekstormm.github.io/</link><description>波澜不惊 自强不息</description><generator>Hugo 0.138.0 &amp; FixIt v0.3.16-aa1709fb</generator><language>zh-CN</language><managingEditor>602272732@qq.com (LGS)</managingEditor><webMaster>602272732@qq.com (LGS)</webMaster><lastBuildDate>Mon, 18 Nov 2024 00:53:14 +0000</lastBuildDate><atom:link href="https://geekstormm.github.io/index.xml" rel="self" type="application/rss+xml"/><item><title>进程与线程的创建</title><link>https://geekstormm.github.io/posts/a7f3bdf/</link><pubDate>Sun, 18 Aug 2024 01:32:36 +0800</pubDate><author>602272732@qq.com (LGS)</author><guid>https://geekstormm.github.io/posts/a7f3bdf/</guid><category domain="https://geekstormm.github.io/categories/linux/">Linux</category><description>&lt;h2 id="线程和进程的创建过程" class="heading-element">&lt;span>线程和进程的创建过程&lt;/span>
+ &lt;a href="#%e7%ba%bf%e7%a8%8b%e5%92%8c%e8%bf%9b%e7%a8%8b%e7%9a%84%e5%88%9b%e5%bb%ba%e8%bf%87%e7%a8%8b" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h2>&lt;p>看到这个标题的第一反应你的想法是什么呢, 是不是觉得在Linux中线程和进程的创建流程可以会有很大的不一样, 实际上, 从内核的视角来看, 线程和进程的创建基本是一样的, 都是调用&lt;code>clone&lt;/code>系统调用, 只不过传递的参数不一样而已, 下面我们就来分析一下&lt;code>clone&lt;/code>系统调用的过程.&lt;/p>
+&lt;h3 id="clone系统调用" class="heading-element">&lt;span>clone系统调用&lt;/span>
+ &lt;a href="#clone%e7%b3%bb%e7%bb%9f%e8%b0%83%e7%94%a8" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;p>&lt;code>clone&lt;/code>系统调用是Linux中创建线程和进程的底层实现, 它的函数原型如下:&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c" data-lang="c">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#8be9fd">long&lt;/span> &lt;span style="color:#50fa7b">clone&lt;/span>(&lt;span style="color:#8be9fd">int&lt;/span> (&lt;span style="color:#ff79c6">*&lt;/span>fn)(&lt;span style="color:#8be9fd">void&lt;/span> &lt;span style="color:#ff79c6">*&lt;/span>), &lt;span style="color:#8be9fd">void&lt;/span> &lt;span style="color:#ff79c6">*&lt;/span>child_stack, &lt;span style="color:#8be9fd">int&lt;/span> flags, &lt;span style="color:#8be9fd">void&lt;/span> &lt;span style="color:#ff79c6">*&lt;/span>arg, &lt;span style="color:#8be9fd">pid_t&lt;/span> &lt;span style="color:#ff79c6">*&lt;/span>ptid, &lt;span style="color:#ff79c6">struct&lt;/span> user_desc &lt;span style="color:#ff79c6">*&lt;/span>tls, &lt;span style="color:#8be9fd">pid_t&lt;/span> &lt;span style="color:#ff79c6">*&lt;/span>ctid);&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>clone&lt;/code>系统调用的参数如下:&lt;/p>
+&lt;ul>
+&lt;li>&lt;code>fn&lt;/code>: 子进程/线程的入口函数&lt;/li>
+&lt;li>&lt;code>child_stack&lt;/code>: 子进程/线程的栈空间&lt;/li>
+&lt;li>&lt;code>flags&lt;/code>: 创建进程/线程的标志&lt;/li>
+&lt;li>&lt;code>arg&lt;/code>: 传递给子进程/线程的参数&lt;/li>
+&lt;li>&lt;code>ptid&lt;/code>: 父进程/线程的线程ID&lt;/li>
+&lt;li>&lt;code>tls&lt;/code>: 线程局部存储&lt;/li>
+&lt;li>&lt;code>ctid&lt;/code>: 子进程/线程的线程ID&lt;/li>
+&lt;/ul>
+&lt;p>&lt;code>clone&lt;/code>系统调用的返回值如下:&lt;/p>
+&lt;ul>
+&lt;li>成功: 返回子进程/线程的线程ID&lt;/li>
+&lt;/ul>
+&lt;pre class="mermaid">graph TD
+ A[fork] --> B[sys_fork]
+ B --> C[do_fork]
+ C --> D[clone CLONE_PARENT]
+ D --> E[copy_process]
+ E --> F[copy_mm]
+ E --> G[copy_fs]
+ E --> H[copy_files]
+ E --> I[copy_sighand]
+ E --> J[copy_thread]
+ E --> K[wake_up_new_task]&lt;/pre>
+&lt;template>graph TD
+ A[fork] --> B[sys_fork]
+ B --> C[do_fork]
+ C --> D[clone CLONE_PARENT]
+ D --> E[copy_process]
+ E --> F[copy_mm]
+ E --> G[copy_fs]
+ E --> H[copy_files]
+ E --> I[copy_sighand]
+ E --> J[copy_thread]
+ E --> K[wake_up_new_task]&lt;/template></description></item><item><title>Clangd工作原理</title><link>https://geekstormm.github.io/posts/0817/</link><pubDate>Sat, 17 Aug 2024 23:53:10 +0800</pubDate><author>602272732@qq.com (LGS)</author><guid>https://geekstormm.github.io/posts/0817/</guid><category domain="https://geekstormm.github.io/categories/%E7%BC%96%E8%AF%91/">编译</category><description>&lt;h2 id="clangd的工作原理" class="heading-element">&lt;span>clangd的工作原理&lt;/span>
+ &lt;a href="#clangd%e7%9a%84%e5%b7%a5%e4%bd%9c%e5%8e%9f%e7%90%86" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h2>&lt;p>clangd 是一个基于 Clang 的语言服务器，实现了语言服务器协议（LSP），用于提供 C/C++ 项目的智能代码编辑功能，如代码补全、跳转到定义、查找引用等。 clangd 的工作流程如下:&lt;/p>
+&lt;h3 id="启动和初始化" class="heading-element">&lt;span>启动和初始化&lt;/span>
+ &lt;a href="#%e5%90%af%e5%8a%a8%e5%92%8c%e5%88%9d%e5%a7%8b%e5%8c%96" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;p>在启动VS code时(VS code内部支持LSP), 如果clangd已经安装, 那么就会自动启动, VS code和clangd通过LSP协议进行通信, clangd会进行初始化, 包括读取配置文件、加载索引和缓存等。&lt;/p>
+&lt;h3 id="读取配置文件" class="heading-element">&lt;span>读取配置文件&lt;/span>
+ &lt;a href="#%e8%af%bb%e5%8f%96%e9%85%8d%e7%bd%ae%e6%96%87%e4%bb%b6" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;p>clangd 会读取配置文件，读取顺序为.clangd 文件, compile_commands.json 文件, clang-tidy 配置, clang-format 配置.&lt;/p>
+&lt;pre>&lt;code>•	clangd 首先加载 .clangd 文件，这个文件配置了 clangd 的基本行为和选项。
+•	compile_commands.json 紧随其后被加载，用于提供项目的具体编译信息。它在 clangd 的配置文件之后加载，但对 clangd 的核心功能影响很大，因为它定义了如何解析项目代码。
+•	clang-tidy 和 clang-format 的配置在此之后加载，并影响代码的静态分析和格式化。
+&lt;/code>&lt;/pre>
+&lt;h3 id="索引和缓存" class="heading-element">&lt;span>索引和缓存&lt;/span>
+ &lt;a href="#%e7%b4%a2%e5%bc%95%e5%92%8c%e7%bc%93%e5%ad%98" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;p>clangd 会索引项目中的源文件，并将索引信息存储在缓存中。索引过程包括解析源文件、提取符号信息、构建符号之间的依赖关系等。索引信息可以加速后续的代码分析，如跳转到定义、查找引用等操作。&lt;/p>
+&lt;p>在索引时, vscode中可以看到左下角的index, 还会显示进度. 索引完成后, 这个提示会消失.&lt;/p>
+&lt;h3 id="处理编辑器请求" class="heading-element">&lt;span>处理编辑器请求&lt;/span>
+ &lt;a href="#%e5%a4%84%e7%90%86%e7%bc%96%e8%be%91%e5%99%a8%e8%af%b7%e6%b1%82" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;p>当编辑器发出请求时，如代码补全、跳转到定义、查找引用等，clangd 会根据请求类型和索引信息进行处理。处理结果会以 JSON 格式返回给编辑器，编辑器会根据结果进行相应的操作，如显示补全列表、跳转到定义等。&lt;/p>
+&lt;h3 id="处理动态变化" class="heading-element">&lt;span>处理动态变化&lt;/span>
+ &lt;a href="#%e5%a4%84%e7%90%86%e5%8a%a8%e6%80%81%e5%8f%98%e5%8c%96" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;p>主要涉及的动作有两个&lt;/p>
+&lt;pre>&lt;code>•	文件变化检测: clangd 会监视项目中的文件变化。当文件被修改、添加或删除时，它会自动更新索引和缓存，以确保提供的智能编辑功能始终是最新的。
+•	重新加载编译数据库: 如果 compile_commands.json 文件发生变化，clangd 会自动重新加载它，并根据新的编译选项更新编译上下文和索引。
+&lt;/code>&lt;/pre>
+&lt;h3 id="关闭" class="heading-element">&lt;span>关闭&lt;/span>
+ &lt;a href="#%e5%85%b3%e9%97%ad" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;p>在关闭vscode的时候,clangd 会自动停止运行，并清理内存中加载的缓存和索引数据。不过，clangd 通常会将索引结果持久化到磁盘，以便在下次启动时加快加载速度。&lt;/p></description></item><item><title>进程与线程的区别</title><link>https://geekstormm.github.io/posts/f1a5e95/</link><pubDate>Sat, 17 Aug 2024 13:32:20 +0800</pubDate><author>602272732@qq.com (LGS)</author><guid>https://geekstormm.github.io/posts/f1a5e95/</guid><category domain="https://geekstormm.github.io/categories/linux/">Linux</category><description>&lt;h2 id="进程和线程" class="heading-element">&lt;span>进程和线程&lt;/span>
+ &lt;a href="#%e8%bf%9b%e7%a8%8b%e5%92%8c%e7%ba%bf%e7%a8%8b" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h2>&lt;p>在网上大部分的介绍中, 总习惯于说明进程和线程的区别, 但是从内核的视角来看, 线程和进程的相同点远远大于不同点.
+在内核的实现中, 将线程和进程统称为任务, 都是用一种结构体(task_struct)来表示, 在调度上没有任何区别, 上下文切换的开销也没太大区别.
+线程的上下文切换的开销会比进程的上下文切换稍微小点, 能少点的原因是如果两个线程属于同一个进程, 那么切换的时候, 不需要切换进程的地址空间, 只需要切换线程的栈和寄存器.&lt;/p>
+&lt;h3 id="进程和线程的相同点" class="heading-element">&lt;span>进程和线程的相同点&lt;/span>
+ &lt;a href="#%e8%bf%9b%e7%a8%8b%e5%92%8c%e7%ba%bf%e7%a8%8b%e7%9a%84%e7%9b%b8%e5%90%8c%e7%82%b9" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;h3 id="进程和线程的区别" class="heading-element">&lt;span>进程和线程的区别&lt;/span>
+ &lt;a href="#%e8%bf%9b%e7%a8%8b%e5%92%8c%e7%ba%bf%e7%a8%8b%e7%9a%84%e5%8c%ba%e5%88%ab" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3></description></item><item><title>观察者模式</title><link>https://geekstormm.github.io/posts/observer/</link><pubDate>Sat, 17 Aug 2024 01:07:17 +0800</pubDate><author>602272732@qq.com (LGS)</author><guid>https://geekstormm.github.io/posts/observer/</guid><category domain="https://geekstormm.github.io/categories/%E8%AE%BE%E8%AE%A1%E6%A8%A1%E5%BC%8F/">设计模式</category><description>&lt;img src="https://geekstormm.github.io/posts/observer/featured-image.jpg" alt="featured image" referrerpolicy="no-referrer">&lt;h2 id="观察者模式" class="heading-element">&lt;span>观察者模式&lt;/span>
+ &lt;a href="#%e8%a7%82%e5%af%9f%e8%80%85%e6%a8%a1%e5%bc%8f" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h2>&lt;p>观察者模式（Observer Pattern）是一种行为设计模式，它定义了对象之间的一对多依赖关系，当一个对象的状态发生改变时，所有依赖于它的对象都会得到通知并自动更新。&lt;/p>
+&lt;p>观察者模式的主要组成部分包括：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>主题（Subject）&lt;/strong>：主题是观察者模式的核心，它维护了一个观察者列表，并提供了添加、删除和通知观察者的方法。&lt;/li>
+&lt;li>&lt;strong>观察者（Observer）&lt;/strong>：观察者是依赖于主题的对象，它实现了观察者接口，并在接收到主题的通知时更新自己的状态。&lt;/li>
+&lt;li>&lt;strong>具体主题（Concrete Subject）&lt;/strong>：具体主题是主题的具体实现，它包含了主题的状态，并在状态发生改变时通知观察者。&lt;/li>
+&lt;li>&lt;strong>具体观察者（Concrete Observer）&lt;/strong>：具体观察者是观察者的具体实现，它包含了观察者的状态，并在接收到主题的通知时更新自己的状态。&lt;/li>
+&lt;/ol>
+&lt;p>观察者模式的主要优点包括：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>松耦合&lt;/strong>：观察者模式将主题和观察者解耦，使得它们可以独立地变化和扩展。&lt;/li>
+&lt;li>&lt;strong>可扩展性&lt;/strong>：观察者模式可以很容易地添加新的观察者或主题，而不需要修改现有的代码。&lt;/li>
+&lt;li>&lt;strong>灵活性&lt;/strong>：观察者模式可以灵活地控制观察者的通知顺序和频率。&lt;/li>
+&lt;/ol>
+&lt;p>观察者模式的主要缺点包括：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>性能问题&lt;/strong>：当观察者数量较多时，通知观察者的开销可能会变得很大。&lt;/li>
+&lt;li>&lt;strong>复杂性&lt;/strong>：观察者模式可能会增加系统的复杂性，特别是在处理复杂的依赖关系时。&lt;/li>
+&lt;/ol>
+&lt;p>观察者模式的应用场景包括：&lt;/p>
+&lt;ol>
+&lt;li>&lt;strong>事件驱动系统&lt;/strong>：观察者模式可以用于实现事件驱动系统，例如GUI应用程序中的事件处理。&lt;/li>
+&lt;li>&lt;strong>消息队列&lt;/strong>：观察者模式可以用于实现消息队列，例如发布/订阅模型。&lt;/li>
+&lt;li>&lt;strong>数据绑定&lt;/strong>：观察者模式可以用于实现数据绑定，例如MVC框架中的视图和模型之间的绑定。&lt;/li>
+&lt;/ol>
+&lt;p>观察者模式是一种常用的设计模式，它可以帮助我们实现对象之间的松耦合和可扩展性，提高系统的灵活性和可维护性。·&lt;/p></description></item><item><title>Leetcode2216</title><link>https://geekstormm.github.io/posts/leetcode2216/</link><pubDate>Tue, 06 Aug 2024 00:23:25 +0800</pubDate><author>602272732@qq.com (LGS)</author><guid>https://geekstormm.github.io/posts/leetcode2216/</guid><category domain="https://geekstormm.github.io/categories/leecode/">Leecode</category><category domain="https://geekstormm.github.io/categories/git/">Git</category><description>&lt;h2 id="leetcode-2216" class="heading-element">&lt;span>Leetcode 2216&lt;/span>
+ &lt;a href="#leetcode-2216" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h2>&lt;p>直接模拟&lt;/p>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">12
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">13
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">14
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">15
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-c++" data-lang="c++">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ff79c6">class&lt;/span> &lt;span style="color:#50fa7b">Solution&lt;/span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ff79c6">public&lt;/span>&lt;span style="color:#ff79c6">:&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#8be9fd">int&lt;/span> minDeletion(vector&lt;span style="color:#ff79c6">&amp;lt;&lt;/span>&lt;span style="color:#8be9fd">int&lt;/span>&lt;span style="color:#ff79c6">&amp;gt;&amp;amp;&lt;/span> nums) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#8be9fd">int&lt;/span> n &lt;span style="color:#ff79c6">=&lt;/span> nums.size();
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#8be9fd">int&lt;/span> cnt &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ff79c6">for&lt;/span> (&lt;span style="color:#8be9fd">int&lt;/span> i &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span>; i &lt;span style="color:#ff79c6">&amp;lt;&lt;/span> n &lt;span style="color:#ff79c6">-&lt;/span> &lt;span style="color:#bd93f9">1&lt;/span>; &lt;span style="color:#ff79c6">++&lt;/span>i) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> ((i &lt;span style="color:#ff79c6">-&lt;/span> cnt) &lt;span style="color:#ff79c6">%&lt;/span> &lt;span style="color:#bd93f9">2&lt;/span> &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#bd93f9">0&lt;/span> &lt;span style="color:#ff79c6">&amp;amp;&amp;amp;&lt;/span> nums[i] &lt;span style="color:#ff79c6">==&lt;/span> nums[i &lt;span style="color:#ff79c6">+&lt;/span> &lt;span style="color:#bd93f9">1&lt;/span>]) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> cnt&lt;span style="color:#ff79c6">++&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> ((n &lt;span style="color:#ff79c6">-&lt;/span> cnt) &lt;span style="color:#ff79c6">%&lt;/span> &lt;span style="color:#bd93f9">2&lt;/span> &lt;span style="color:#ff79c6">==&lt;/span> &lt;span style="color:#bd93f9">1&lt;/span>) &lt;span style="color:#ff79c6">return&lt;/span> cnt &lt;span style="color:#ff79c6">+&lt;/span> &lt;span style="color:#bd93f9">1&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ff79c6">return&lt;/span> cnt;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>};&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div></description></item><item><title>虚拟节点的用处</title><link>https://geekstormm.github.io/posts/%E7%AE%97%E6%B3%95%E4%B8%AD%E7%9A%84%E8%99%9A%E6%8B%9F%E8%8A%82%E7%82%B9/</link><pubDate>Tue, 06 Aug 2024 00:23:25 +0800</pubDate><author>602272732@qq.com (LGS)</author><guid>https://geekstormm.github.io/posts/%E7%AE%97%E6%B3%95%E4%B8%AD%E7%9A%84%E8%99%9A%E6%8B%9F%E8%8A%82%E7%82%B9/</guid><category domain="https://geekstormm.github.io/categories/leecode/">Leecode</category><category domain="https://geekstormm.github.io/categories/git/">Git</category><description>&lt;h2 id="虚拟节点的用处" class="heading-element">&lt;span>虚拟节点的用处&lt;/span>
+ &lt;a href="#%e8%99%9a%e6%8b%9f%e8%8a%82%e7%82%b9%e7%9a%84%e7%94%a8%e5%a4%84" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h2>&lt;h3 id="1-链表操作" class="heading-element">&lt;span>1. 链表操作&lt;/span>
+ &lt;a href="#1-%e9%93%be%e8%a1%a8%e6%93%8d%e4%bd%9c" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;ul>
+&lt;li>删除链表 在删除链表节点时，特别是删除头节点，通常需要对头节点进行特殊处理。引入一个虚拟头节点，可以统一删除节点的操作逻辑，无需特判头节点。例如：&lt;/li>
+&lt;/ul>
+&lt;div class="highlight">&lt;div style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">
+&lt;table style="border-spacing:0;padding:0;margin:0;border:0;">&lt;tr>&lt;td style="vertical-align:top;padding:0;margin:0;border:0;">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 1
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 2
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 3
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 4
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 5
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 6
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 7
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 8
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f"> 9
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">10
+&lt;/span>&lt;span style="white-space:pre;-webkit-user-select:none;user-select:none;margin-right:0.4em;padding:0 0.4em 0 0.4em;color:#7f7f7f">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td style="vertical-align:top;padding:0;margin:0;border:0;;width:100%">
+&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#282a36;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-C++" data-lang="C++">&lt;span style="display:flex;">&lt;span>ListNode&lt;span style="color:#ff79c6">*&lt;/span> dummy &lt;span style="color:#ff79c6">=&lt;/span> &lt;span style="color:#ff79c6">new&lt;/span> ListNode(&lt;span style="color:#bd93f9">0&lt;/span>);
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>dummy&lt;span style="color:#ff79c6">-&amp;gt;&lt;/span>next &lt;span style="color:#ff79c6">=&lt;/span> head;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>ListNode&lt;span style="color:#ff79c6">*&lt;/span> current &lt;span style="color:#ff79c6">=&lt;/span> dummy;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ff79c6">while&lt;/span> (current&lt;span style="color:#ff79c6">-&amp;gt;&lt;/span>next &lt;span style="color:#ff79c6">!=&lt;/span> &lt;span style="color:#ff79c6">nullptr&lt;/span>) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ff79c6">if&lt;/span> (current&lt;span style="color:#ff79c6">-&amp;gt;&lt;/span>next&lt;span style="color:#ff79c6">-&amp;gt;&lt;/span>val &lt;span style="color:#ff79c6">==&lt;/span> value) {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> current&lt;span style="color:#ff79c6">-&amp;gt;&lt;/span>next &lt;span style="color:#ff79c6">=&lt;/span> current&lt;span style="color:#ff79c6">-&amp;gt;&lt;/span>next&lt;span style="color:#ff79c6">-&amp;gt;&lt;/span>next;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#ff79c6">break&lt;/span>;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> current &lt;span style="color:#ff79c6">=&lt;/span> current&lt;span style="color:#ff79c6">-&amp;gt;&lt;/span>next;
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ff79c6">return&lt;/span> dummy&lt;span style="color:#ff79c6">-&amp;gt;&lt;/span>next;&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;ul>
+&lt;li>合并链表, 在合并两个有序链表时，使用虚拟头节点可以避免初始化第一个节点的特殊处理。&lt;/li>
+&lt;/ul>
+&lt;h3 id="2-树操作" class="heading-element">&lt;span>2. 树操作&lt;/span>
+ &lt;a href="#2-%e6%a0%91%e6%93%8d%e4%bd%9c" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;ul>
+&lt;li>层序遍历, 在二叉树的层序遍历中，使用虚拟节点（如在每层之间加入一个特殊的 null 节点）可以方便区分不同的层级，简化层级分隔的处理。&lt;/li>
+&lt;li>构建环形链表, 在处理一些树或者图结构时，引入一个虚拟根节点可以将非平衡的树结构转换为更容易处理的形式，尤其是在做序列化、反序列化或者复杂遍历时。&lt;/li>
+&lt;/ul>
+&lt;h3 id="3-dp中的状态转移" class="heading-element">&lt;span>3. DP中的状态转移&lt;/span>
+ &lt;a href="#3-dp%e4%b8%ad%e7%9a%84%e7%8a%b6%e6%80%81%e8%bd%ac%e7%a7%bb" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;ul>
+&lt;li>状态初始化：在一些动态规划问题中（如背包问题、最短路径问题），引入虚拟节点或状态可以统一处理初始状态与一般状态的转移，避免对初始条件的特殊处理。&lt;/li>
+&lt;li>二维动态规划：如之前的例子，虚拟节点可以用来简化动态规划中的边界条件处理，使得状态转移方程更为统一和简洁。&lt;/li>
+&lt;/ul>
+&lt;h3 id="4图算法" class="heading-element">&lt;span>4.图算法：&lt;/span>
+ &lt;a href="#4%e5%9b%be%e7%ae%97%e6%b3%95" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;ul>
+&lt;li>最短路径：在计算多个节点的最短路径时，可以引入一个虚拟源节点，连接所有原始节点，来简化处理每个节点的初始路径计算。&lt;/li>
+&lt;li>拓扑排序：在拓扑排序中，引入虚拟节点可以方便处理那些没有入度的节点，统一处理初始条件。&lt;/li>
+&lt;/ul>
+&lt;h3 id="5字符串匹配" class="heading-element">&lt;span>5.字符串匹配：&lt;/span>
+ &lt;a href="#5%e5%ad%97%e7%ac%a6%e4%b8%b2%e5%8c%b9%e9%85%8d" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;ul>
+&lt;li>KMP算法：在KMP字符串匹配算法中，引入虚拟节点可以用于简化前缀表（失败函数）的初始化处理，使得主串与模式串的匹配过程更加顺畅。&lt;/li>
+&lt;/ul>
+&lt;h3 id="6其他场景" class="heading-element">&lt;span>6.其他场景：&lt;/span>
+ &lt;a href="#6%e5%85%b6%e4%bb%96%e5%9c%ba%e6%99%af" class="heading-mark">
+ &lt;svg class="octicon octicon-link" viewBox="0 0 16 16" version="1.1" width="16" height="16" aria-hidden="true">&lt;path d="m7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z">&lt;/path>&lt;/svg>
+ &lt;/a>
+&lt;/h3>&lt;ul>
+&lt;li>多源汇流问题：在流网络中，可以通过添加虚拟源点或汇点来将多源或多汇问题转换为单源单汇问题，从而简化算法设计。&lt;/li>
+&lt;/ul></description></item></channel></rss>
